@@ -112,6 +112,13 @@ async function getComponentNames(): Promise<Set<string>> {
     const mainComponent = await instance.getMainComponentAsync();
     if (mainComponent) {
       names.add(mainComponent.name);
+      // Variant components are auto-named after their variant properties
+      // (e.g. "Variant=Outlined, State=Enabled"), while the parent component
+      // set carries the friendly name (e.g. "Text Field") shown in the
+      // Assets panel — an instance may be named after either one.
+      if (mainComponent.parent && mainComponent.parent.type === 'COMPONENT_SET') {
+        names.add(mainComponent.parent.name);
+      }
     }
   }
 
