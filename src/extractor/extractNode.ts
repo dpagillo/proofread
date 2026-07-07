@@ -93,7 +93,19 @@ async function extractTextInfo(node: SceneNode): Promise<TextInfo | null> {
   }
 
   if (node.fontName !== figma.mixed) {
-    await figma.loadFontAsync(node.fontName);
+    try {
+      await figma.loadFontAsync(node.fontName);
+    } catch {
+      // Font isn't available locally (e.g. a font not installed on this machine).
+      // Fall back to whatever text properties can still be read without it.
+    }
+  }
+
+  let characters = '';
+  try {
+    characters = node.characters.slice(0, 80);
+  } catch {
+    characters = '';
   }
 
   const boundToTextStyleVariable = Boolean(
@@ -101,7 +113,7 @@ async function extractTextInfo(node: SceneNode): Promise<TextInfo | null> {
   );
 
   return {
-    characters: node.characters.slice(0, 80),
+    characters,
     fontSize: node.fontSize === figma.mixed ? 'MIXED' : node.fontSize,
     fontFamily: node.fontName === figma.mixed ? 'MIXED' : node.fontName.family,
     fontStyle: node.fontName === figma.mixed ? 'MIXED' : node.fontName.style,
