@@ -1,0 +1,7 @@
+{
+  "name": "Proofread — Seed Demo Data",
+  "id": "proofread-seed-demo-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"]
+}
