@@ -1,29 +1,51 @@
 import type { ColorDefinition, RuleContext } from '../rules/types';
 
-async function getColorStyles(): Promise<ColorDefinition[]> {
-  const styles = await figma.getLocalPaintStylesAsync();
-  const result: ColorDefinition[] = [];
+function colorFromSolid(paint: SolidPaint): ColorDefinition['color'] {
+  return { r: paint.color.r, g: paint.color.g, b: paint.color.b, a: paint.opacity ?? 1 };
+}
 
-  for (const style of styles) {
+async function getColorStyles(): Promise<ColorDefinition[]> {
+  const result = new Map<string, ColorDefinition>();
+
+  const localStyles = await figma.getLocalPaintStylesAsync();
+  for (const style of localStyles) {
     const solid = style.paints.find(
       (paint): paint is SolidPaint => paint.type === 'SOLID' && paint.visible !== false,
     );
     if (solid) {
-      result.push({
-        id: style.id,
-        name: style.name,
-        color: { r: solid.color.r, g: solid.color.g, b: solid.color.b, a: solid.opacity ?? 1 },
-      });
+      result.set(style.id, { id: style.id, name: style.name, color: colorFromSolid(solid) });
     }
   }
 
-  return result;
+  // Local styles only cover styles defined in this file. A style from a linked
+  // team library won't show up above, so also resolve any style still actively
+  // referenced by a node anywhere in the document (local or remote).
+  const nodesWithFillStyle = figma.root.findAll(
+    (node) => 'fillStyleId' in node && typeof node.fillStyleId === 'string' && node.fillStyleId.length > 0,
+  ) as Array<SceneNode & { fillStyleId: string }>;
+
+  const uniqueStyleIds = new Set(nodesWithFillStyle.map((node) => node.fillStyleId));
+  for (const styleId of uniqueStyleIds) {
+    if (result.has(styleId)) continue;
+    const style = await figma.getStyleByIdAsync(styleId);
+    if (style && style.type === 'PAINT') {
+      const paintStyle = style as PaintStyle;
+      const solid = paintStyle.paints.find(
+        (paint): paint is SolidPaint => paint.type === 'SOLID' && paint.visible !== false,
+      );
+      if (solid) {
+        result.set(styleId, { id: styleId, name: paintStyle.name, color: colorFromSolid(solid) });
+      }
+    }
+  }
+
+  return [...result.values()];
 }
 
 async function getColorVariables(): Promise<ColorDefinition[]> {
-  const collections = await figma.variables.getLocalVariableCollectionsAsync();
-  const result: ColorDefinition[] = [];
+  const result = new Map<string, ColorDefinition>();
 
+  const collections = await figma.variables.getLocalVariableCollectionsAsync();
   for (const collection of collections) {
     for (const variableId of collection.variableIds) {
       const variable = await figma.variables.getVariableByIdAsync(variableId);
@@ -31,7 +53,7 @@ async function getColorVariables(): Promise<ColorDefinition[]> {
 
       const value = variable.valuesByMode[collection.defaultModeId];
       if (value && typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
-        result.push({
+        result.set(variable.id, {
           id: variable.id,
           name: variable.name,
           color: { r: value.r, g: value.g, b: value.b, a: 'a' in value ? value.a : 1 },
@@ -40,15 +62,67 @@ async function getColorVariables(): Promise<ColorDefinition[]> {
     }
   }
 
-  return result;
+  // Same local-only gap as styles: also resolve variables bound to a fill
+  // anywhere in the document, which catches ones from a linked library.
+  const nodesWithBoundFillVariable = figma.root.findAll((node) => {
+    if (!('fills' in node)) return false;
+    const fills = node.fills;
+    return Array.isArray(fills) && fills.some((paint) => paint.type === 'SOLID' && paint.boundVariables?.color);
+  }) as SceneNode[];
+
+  const variableIds = new Set<string>();
+  for (const node of nodesWithBoundFillVariable) {
+    const fills = (node as unknown as { fills: Paint[] }).fills;
+    for (const paint of fills) {
+      if (paint.type === 'SOLID' && paint.boundVariables?.color) {
+        variableIds.add(paint.boundVariables.color.id);
+      }
+    }
+  }
+
+  for (const variableId of variableIds) {
+    if (result.has(variableId)) continue;
+    const variable = await figma.variables.getVariableByIdAsync(variableId);
+    if (!variable || variable.resolvedType !== 'COLOR') continue;
+
+    const firstValue = Object.values(variable.valuesByMode)[0];
+    if (firstValue && typeof firstValue === 'object' && 'r' in firstValue && 'g' in firstValue && 'b' in firstValue) {
+      result.set(variableId, {
+        id: variableId,
+        name: variable.name,
+        color: { r: firstValue.r, g: firstValue.g, b: firstValue.b, a: 'a' in firstValue ? firstValue.a : 1 },
+      });
+    }
+  }
+
+  return [...result.values()];
 }
 
-function getComponentNames(): Set<string> {
-  const nodes = figma.root.findAllWithCriteria({ types: ['COMPONENT', 'COMPONENT_SET'] });
-  return new Set(nodes.map((node) => node.name));
+async function getComponentNames(): Promise<Set<string>> {
+  const names = new Set<string>();
+
+  const localDefinitions = figma.root.findAllWithCriteria({ types: ['COMPONENT', 'COMPONENT_SET'] });
+  localDefinitions.forEach((node) => names.add(node.name));
+
+  // Local definitions only cover components defined in this file. A component
+  // from a linked team library has no local definition node, so also resolve
+  // the main component of every remaining instance (local or remote).
+  const instances = figma.root.findAllWithCriteria({ types: ['INSTANCE'] });
+  for (const instance of instances) {
+    const mainComponent = await instance.getMainComponentAsync();
+    if (mainComponent) {
+      names.add(mainComponent.name);
+    }
+  }
+
+  return names;
 }
 
 export async function buildRuleContext(): Promise<RuleContext> {
-  const [colorStyles, colorVariables] = await Promise.all([getColorStyles(), getColorVariables()]);
-  return { colorStyles, colorVariables, componentNames: getComponentNames() };
+  const [colorStyles, colorVariables, componentNames] = await Promise.all([
+    getColorStyles(),
+    getColorVariables(),
+    getComponentNames(),
+  ]);
+  return { colorStyles, colorVariables, componentNames };
 }
