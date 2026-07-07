@@ -48,6 +48,7 @@ export type DesignNode = {
   y: number;
   visible: boolean;
   fills: ExtractedPaint[];
+  fillStyleId: string | 'MIXED' | null;
   strokes: ExtractedPaint[];
   cornerRadius: CornerRadius;
   autoLayout: AutoLayoutInfo | null;

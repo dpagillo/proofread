@@ -1,4 +1,4 @@
-import type { DesignNode } from '../extractor/types';
+import type { DesignNode, ExtractedColor } from '../extractor/types';
 
 export type FindingCategory = 'design-system' | 'accessibility' | 'layout';
 
@@ -15,8 +15,20 @@ export type Finding = {
   nodeIds: string[];
 };
 
+export type ColorDefinition = {
+  id: string;
+  name: string;
+  color: ExtractedColor;
+};
+
+export type RuleContext = {
+  colorStyles: ColorDefinition[];
+  colorVariables: ColorDefinition[];
+  componentNames: Set<string>;
+};
+
 export type Rule = {
   id: string;
   category: FindingCategory;
-  evaluate: (roots: DesignNode[]) => Finding[];
+  evaluate: (roots: DesignNode[], context: RuleContext) => Finding[];
 };

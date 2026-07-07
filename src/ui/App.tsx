@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PluginToUIMessage, UIToPluginMessage } from '../shared/messages';
 import type { DesignNode } from '../extractor/types';
 import type { Finding } from '../rules/types';
+import { FindingCard } from './components/FindingCard';
 
 function postToPlugin(message: UIToPluginMessage): void {
   parent.postMessage({ pluginMessage: message }, '*');
@@ -84,24 +85,13 @@ export function App() {
       )}
       {findings && (
         <div style={{ marginTop: 12 }}>
-          <p>
-            {findings.length} finding{findings.length === 1 ? '' : 's'}.{' '}
-            {findings.length === 0 && '(expected — no rules implemented yet, engine is wired)'}
+          <p style={{ marginBottom: 8 }}>
+            {findings.length} finding{findings.length === 1 ? '' : 's'}.
+            {findings.length === 0 && ' Nothing to report — nice work.'}
           </p>
-          <pre
-            style={{
-              marginTop: 8,
-              padding: 8,
-              background: '#f5f5f5',
-              fontSize: 10,
-              maxHeight: 320,
-              overflow: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {JSON.stringify(findings, null, 2)}
-          </pre>
+          {findings.map((finding) => (
+            <FindingCard key={finding.id} finding={finding} />
+          ))}
         </div>
       )}
     </main>

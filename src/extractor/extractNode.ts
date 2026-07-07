@@ -114,6 +114,16 @@ function hasChildren(node: SceneNode): node is SceneNode & ChildrenMixin {
   return 'children' in node;
 }
 
+function extractFillStyleId(node: SceneNode): string | 'MIXED' | null {
+  if (!('fillStyleId' in node)) {
+    return null;
+  }
+  if (node.fillStyleId === figma.mixed) {
+    return 'MIXED';
+  }
+  return node.fillStyleId.length > 0 ? node.fillStyleId : null;
+}
+
 export async function extractNode(node: SceneNode): Promise<DesignNode> {
   const [component, text] = await Promise.all([extractComponentInfo(node), extractTextInfo(node)]);
 
@@ -129,6 +139,7 @@ export async function extractNode(node: SceneNode): Promise<DesignNode> {
     y: 'y' in node ? node.y : 0,
     visible: node.visible,
     fills: 'fills' in node ? extractPaints(node.fills as readonly Paint[] | typeof figma.mixed) : [],
+    fillStyleId: extractFillStyleId(node),
     strokes: 'strokes' in node ? extractPaints(node.strokes) : [],
     cornerRadius: extractCornerRadius(node),
     autoLayout: extractAutoLayout(node),
