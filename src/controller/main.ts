@@ -1,4 +1,6 @@
 import { extractSelection } from '../extractor/walk';
+import { runRules } from '../rules/engine';
+import { rules } from '../rules';
 import { onMessageFromUI, postToUI } from './messaging';
 
 figma.showUI(__html__, { width: 360, height: 480 });
@@ -16,6 +18,16 @@ async function sendExtraction(): Promise<void> {
   }
 }
 
+async function sendAnalysis(): Promise<void> {
+  try {
+    const tree = await extractSelection(figma.currentPage.selection);
+    const findings = runRules(tree, rules);
+    postToUI({ type: 'ANALYSIS_RESULT', findings });
+  } catch (error) {
+    postToUI({ type: 'ANALYSIS_ERROR', message: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 sendSelectionInfo();
 
 figma.on('selectionchange', sendSelectionInfo);
@@ -25,5 +37,7 @@ onMessageFromUI((message) => {
     sendSelectionInfo();
   } else if (message.type === 'REQUEST_EXTRACTION') {
     void sendExtraction();
+  } else if (message.type === 'REQUEST_ANALYSIS') {
+    void sendAnalysis();
   }
 });

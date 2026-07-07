@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PluginToUIMessage, UIToPluginMessage } from '../shared/messages';
 import type { DesignNode } from '../extractor/types';
+import type { Finding } from '../rules/types';
 
 function postToPlugin(message: UIToPluginMessage): void {
   parent.postMessage({ pluginMessage: message }, '*');
@@ -9,6 +10,7 @@ function postToPlugin(message: UIToPluginMessage): void {
 export function App() {
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
   const [tree, setTree] = useState<DesignNode[] | null>(null);
+  const [findings, setFindings] = useState<Finding[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,13 +19,22 @@ export function App() {
       if (message?.type === 'SELECTION_INFO') {
         setSelectionCount(message.count);
         setTree(null);
+        setFindings(null);
         setError(null);
       } else if (message?.type === 'EXTRACTION_RESULT') {
         setTree(message.tree);
+        setFindings(null);
         setError(null);
       } else if (message?.type === 'EXTRACTION_ERROR') {
         setError(message.message);
         setTree(null);
+      } else if (message?.type === 'ANALYSIS_RESULT') {
+        setFindings(message.findings);
+        setTree(null);
+        setError(null);
+      } else if (message?.type === 'ANALYSIS_ERROR') {
+        setError(message.message);
+        setFindings(null);
       }
     }
 
@@ -44,12 +55,17 @@ export function App() {
           <p style={{ marginBottom: 12 }}>
             {selectionCount} node{selectionCount === 1 ? '' : 's'} selected.
           </p>
-          <button onClick={() => postToPlugin({ type: 'REQUEST_EXTRACTION' })}>
-            Extract selection (debug)
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => postToPlugin({ type: 'REQUEST_EXTRACTION' })}>
+              Extract selection (debug)
+            </button>
+            <button onClick={() => postToPlugin({ type: 'REQUEST_ANALYSIS' })}>
+              Run rules (debug)
+            </button>
+          </div>
         </>
       )}
-      {error && <p style={{ color: '#c00', marginTop: 12 }}>Extraction failed: {error}</p>}
+      {error && <p style={{ color: '#c00', marginTop: 12 }}>Failed: {error}</p>}
       {tree && (
         <pre
           style={{
@@ -65,6 +81,28 @@ export function App() {
         >
           {JSON.stringify(tree, null, 2)}
         </pre>
+      )}
+      {findings && (
+        <div style={{ marginTop: 12 }}>
+          <p>
+            {findings.length} finding{findings.length === 1 ? '' : 's'}.{' '}
+            {findings.length === 0 && '(expected — no rules implemented yet, engine is wired)'}
+          </p>
+          <pre
+            style={{
+              marginTop: 8,
+              padding: 8,
+              background: '#f5f5f5',
+              fontSize: 10,
+              maxHeight: 320,
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {JSON.stringify(findings, null, 2)}
+          </pre>
+        </div>
       )}
     </main>
   );

@@ -5,10 +5,10 @@
   "description": "A second set of eyes for every design. A Figma plugin that reviews a selection for consistency, accessibility, and design-system issues.",
   "scripts": {
     "build:ui": "vite build",
-    "build:main": "esbuild src/controller/main.ts --bundle --outfile=dist/code.js --target=es2017",
+    "build:main": "esbuild src/controller/main.ts --bundle --outfile=dist/code.js --target=es2019",
     "build": "npm run build:main && npm run build:ui",
     "watch:ui": "vite build --watch",
-    "watch:main": "esbuild src/controller/main.ts --bundle --outfile=dist/code.js --target=es2017 --watch",
+    "watch:main": "esbuild src/controller/main.ts --bundle --outfile=dist/code.js --target=es2019 --watch",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write ."
   },
