@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { PluginToUIMessage, UIToPluginMessage } from '../shared/messages';
-import type { DesignNode } from '../extractor/types';
-import type { Finding } from '../rules/types';
-import { FindingCard } from './components/FindingCard';
+import type { Finding, FindingCategory } from '../rules/types';
+import { CategoryGroup } from './components/CategoryGroup';
+import { EmptyState } from './components/EmptyState';
+
+const CATEGORY_ORDER: FindingCategory[] = ['design-system', 'accessibility', 'layout'];
 
 function postToPlugin(message: UIToPluginMessage): void {
   parent.postMessage({ pluginMessage: message }, '*');
@@ -10,8 +12,8 @@ function postToPlugin(message: UIToPluginMessage): void {
 
 export function App() {
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
-  const [tree, setTree] = useState<DesignNode[] | null>(null);
   const [findings, setFindings] = useState<Finding[] | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,23 +21,13 @@ export function App() {
       const message = event.data.pluginMessage as PluginToUIMessage | undefined;
       if (message?.type === 'SELECTION_INFO') {
         setSelectionCount(message.count);
-        setTree(null);
-        setFindings(null);
-        setError(null);
-      } else if (message?.type === 'EXTRACTION_RESULT') {
-        setTree(message.tree);
-        setFindings(null);
-        setError(null);
-      } else if (message?.type === 'EXTRACTION_ERROR') {
-        setError(message.message);
-        setTree(null);
       } else if (message?.type === 'ANALYSIS_RESULT') {
         setFindings(message.findings);
-        setTree(null);
+        setAnalyzing(false);
         setError(null);
       } else if (message?.type === 'ANALYSIS_ERROR') {
         setError(message.message);
-        setFindings(null);
+        setAnalyzing(false);
       }
     }
 
@@ -45,10 +37,21 @@ export function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  function handleAnalyze() {
+    setAnalyzing(true);
+    setError(null);
+    postToPlugin({ type: 'REQUEST_ANALYSIS' });
+  }
+
+  function handleSelectNodes(nodeIds: string[]) {
+    postToPlugin({ type: 'SELECT_NODES', nodeIds });
+  }
+
   return (
     <main style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, padding: 16 }}>
       <h1 style={{ fontSize: 14, marginBottom: 4 }}>Proofread</h1>
       <p style={{ color: '#666', marginBottom: 16 }}>A second set of eyes for every design.</p>
+
       {selectionCount === null && <p>Loading selection…</p>}
       {selectionCount === 0 && <p>Select a frame or layer to analyze.</p>}
       {selectionCount !== null && selectionCount > 0 && (
@@ -56,42 +59,28 @@ export function App() {
           <p style={{ marginBottom: 12 }}>
             {selectionCount} node{selectionCount === 1 ? '' : 's'} selected.
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => postToPlugin({ type: 'REQUEST_EXTRACTION' })}>
-              Extract selection (debug)
-            </button>
-            <button onClick={() => postToPlugin({ type: 'REQUEST_ANALYSIS' })}>
-              Run rules (debug)
-            </button>
-          </div>
+          <button onClick={handleAnalyze} disabled={analyzing}>
+            {analyzing ? 'Analyzing…' : 'Analyze selection'}
+          </button>
         </>
       )}
-      {error && <p style={{ color: '#c00', marginTop: 12 }}>Failed: {error}</p>}
-      {tree && (
-        <pre
-          style={{
-            marginTop: 12,
-            padding: 8,
-            background: '#f5f5f5',
-            fontSize: 10,
-            maxHeight: 320,
-            overflow: 'auto',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {JSON.stringify(tree, null, 2)}
-        </pre>
-      )}
-      {findings && (
-        <div style={{ marginTop: 12 }}>
-          <p style={{ marginBottom: 8 }}>
-            {findings.length} finding{findings.length === 1 ? '' : 's'}.
-            {findings.length === 0 && ' Nothing to report — nice work.'}
-          </p>
-          {findings.map((finding) => (
-            <FindingCard key={finding.id} finding={finding} />
-          ))}
+
+      {error && <p style={{ color: '#c00', marginTop: 12 }}>Analysis failed: {error}</p>}
+
+      {findings && !analyzing && (
+        <div style={{ marginTop: 16 }}>
+          {findings.length === 0 ? (
+            <EmptyState />
+          ) : (
+            CATEGORY_ORDER.map((category) => (
+              <CategoryGroup
+                key={category}
+                category={category}
+                findings={findings.filter((finding) => finding.category === category)}
+                onSelectNodes={handleSelectNodes}
+              />
+            ))
+          )}
         </div>
       )}
     </main>

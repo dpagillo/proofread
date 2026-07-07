@@ -6,7 +6,13 @@ const SEVERITY_COLORS: Record<FindingSeverity, string> = {
   suggestion: '#2c5282',
 };
 
-export function FindingCard({ finding }: { finding: Finding }) {
+export function FindingCard({
+  finding,
+  onSelectNodes,
+}: {
+  finding: Finding;
+  onSelectNodes: (nodeIds: string[]) => void;
+}) {
   return (
     <div
       style={{
@@ -17,14 +23,28 @@ export function FindingCard({ finding }: { finding: Finding }) {
         marginBottom: 8,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
         <strong>{finding.title}</strong>
-        <span style={{ color: SEVERITY_COLORS[finding.severity], textTransform: 'uppercase', fontSize: 10 }}>
+        <span
+          style={{
+            color: SEVERITY_COLORS[finding.severity],
+            textTransform: 'uppercase',
+            fontSize: 10,
+            whiteSpace: 'nowrap',
+          }}
+        >
           {finding.severity}
         </span>
       </div>
       <p style={{ color: '#444', marginBottom: 6 }}>{finding.description}</p>
-      <p style={{ color: '#2c5282' }}>{finding.recommendation}</p>
+      <p style={{ color: '#2c5282', marginBottom: 8 }}>{finding.recommendation}</p>
+      <button
+        style={{ fontSize: 11 }}
+        onClick={() => onSelectNodes(finding.nodeIds)}
+        disabled={finding.nodeIds.length === 0}
+      >
+        Select in Figma
+      </button>
     </div>
   );
 }

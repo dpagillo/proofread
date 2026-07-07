@@ -4,19 +4,10 @@ import { rules } from '../rules';
 import { buildRuleContext } from './fileContext';
 import { onMessageFromUI, postToUI } from './messaging';
 
-figma.showUI(__html__, { width: 360, height: 480 });
+figma.showUI(__html__, { width: 380, height: 600 });
 
 function sendSelectionInfo(): void {
   postToUI({ type: 'SELECTION_INFO', count: figma.currentPage.selection.length });
-}
-
-async function sendExtraction(): Promise<void> {
-  try {
-    const tree = await extractSelection(figma.currentPage.selection);
-    postToUI({ type: 'EXTRACTION_RESULT', tree });
-  } catch (error) {
-    postToUI({ type: 'EXTRACTION_ERROR', message: error instanceof Error ? error.message : String(error) });
-  }
 }
 
 async function sendAnalysis(): Promise<void> {
@@ -32,6 +23,19 @@ async function sendAnalysis(): Promise<void> {
   }
 }
 
+async function selectAndZoomTo(nodeIds: string[]): Promise<void> {
+  const nodes: SceneNode[] = [];
+  for (const id of nodeIds) {
+    const node = await figma.getNodeByIdAsync(id);
+    if (node && 'x' in node) {
+      nodes.push(node as SceneNode);
+    }
+  }
+  if (nodes.length === 0) return;
+  figma.currentPage.selection = nodes;
+  figma.viewport.scrollAndZoomIntoView(nodes);
+}
+
 sendSelectionInfo();
 
 figma.on('selectionchange', sendSelectionInfo);
@@ -39,9 +43,9 @@ figma.on('selectionchange', sendSelectionInfo);
 onMessageFromUI((message) => {
   if (message.type === 'REQUEST_SELECTION_INFO') {
     sendSelectionInfo();
-  } else if (message.type === 'REQUEST_EXTRACTION') {
-    void sendExtraction();
   } else if (message.type === 'REQUEST_ANALYSIS') {
     void sendAnalysis();
+  } else if (message.type === 'SELECT_NODES') {
+    void selectAndZoomTo(message.nodeIds);
   }
 });
