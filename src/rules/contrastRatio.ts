@@ -50,6 +50,7 @@ function walk(node: DesignNode, background: ExtractedColor, findings: Finding[])
           } text. Low-contrast text is harder to read, especially for users with low vision.`,
           recommendation: 'Darken the text, lighten the background, or otherwise adjust the colors until the contrast ratio meets WCAG AA.',
           nodeIds: [node.id],
+          learnMoreUrl: 'https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html',
         });
       }
     }

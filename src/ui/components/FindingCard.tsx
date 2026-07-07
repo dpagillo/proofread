@@ -38,6 +38,13 @@ export function FindingCard({
       </div>
       <p style={{ color: '#444', marginBottom: 6 }}>{finding.description}</p>
       <p style={{ color: '#2c5282', marginBottom: 8 }}>{finding.recommendation}</p>
+      {finding.learnMoreUrl && (
+        <p style={{ marginBottom: 8 }}>
+          <a href={finding.learnMoreUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11 }}>
+            Learn more about this standard
+          </a>
+        </p>
+      )}
       <button
         style={{ fontSize: 11 }}
         onClick={() => onSelectNodes(finding.nodeIds)}

@@ -13,6 +13,7 @@ export type Finding = {
   description: string;
   recommendation: string;
   nodeIds: string[];
+  learnMoreUrl?: string;
 };
 
 export type ColorDefinition = {
